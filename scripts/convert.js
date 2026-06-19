@@ -3,7 +3,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { reformat } = require('./reformat');
-const { extractText, parseTOC, splitSections, escapeMd, anchorId, detectFormat, parseRomanTOC, splitRomanSections, parseBracketTOC, splitBracketSections, parseArrowTOC, splitBoxSections, parsePlainTOC, splitPlainSections, parseDashTOC, splitDashSections, parseAuthor, parseTitle } = require('../lib/convert-core');
+const { extractText, parseTOC, splitSections, escapeMd, anchorId, detectFormat, parseRomanTOC, splitRomanSections, parseBracketTOC, splitBracketSections, parseArrowTOC, splitBoxSections, parsePlainTOC, splitPlainSections, parseDashTOC, splitDashSections, parseHashTOC, splitHashSections, parseAuthor, parseTitle } = require('../lib/convert-core');
 const { parseArgs, showHelp, validateOutputPath } = require('../lib/cli');
 
 const SCRIPT_NAME = 'faqmd';
@@ -94,6 +94,7 @@ async function main() {
     bracket:  { parse: parseBracketTOC,  split: splitBracketSections,  label: 'bracket-ccode' },
     standard: { parse: parseTOC,         split: splitSections,         label: 'standard (CCODE)' },
     dash:     { parse: parseDashTOC,     split: splitDashSections,     label: 'dash' },
+    hash:     { parse: parseHashTOC,     split: splitHashSections,     label: 'hash-title' },
   };
 
   const fmt = FORMATS[format];

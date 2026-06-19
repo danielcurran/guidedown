@@ -4,14 +4,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const { extractText, parseTOC, splitSections, escapeMd, anchorId, detectFormat, romanToInt, parseRomanTOC, splitRomanSections, parseDashTOC, splitDashSections } = require('../lib/convert-core');
+const { extractText, parseTOC, splitSections, escapeMd, anchorId, detectFormat, romanToInt, parseRomanTOC, splitRomanSections, parseDashTOC, splitDashSections, parseHashTOC, splitHashSections } = require('../lib/convert-core');
 const {
   reformat, reformatBlock, formatProse, formatStatBlock, formatDecorativeText,
   classifyArtBlock, formatEquipmentTable, formatBossCard,
   formatCharacterSheet, formatCharacterPortrait, formatRomanSubHeader
 } = require('./reformat');
-const { formatShopList } = require('../lib/reformat/format');
-const { hasEquipSlotLines, isBossCard, isShopBlock, isCharacterSheet, isCharacterPortrait, isPureBorderRow } = require('../lib/reformat/detect');
+const { formatShopList, formatHashSubHeader } = require('../lib/reformat/format');
+const { hasEquipSlotLines, isBossCard, isShopBlock, isCharacterSheet, isCharacterPortrait, isPureBorderRow, isHashSubHeader } = require('../lib/reformat/detect');
 const { stripFrameChars, anchorId: anchorIdStr } = require('../lib/reformat/utils');
 const { parseArgs, validateOutputPath, validateInputFile } = require('../lib/cli');
 const { parseAuthor, parseTitle } = require('../lib/convert-core');
@@ -439,9 +439,9 @@ assert('e2e: walkthrough.md exists', () => {
 assert('e2e: walkthrough.md has expected sections', () => {
   const p = path.join(__dirname, 'walkthrough.md');
   const md = fs.readFileSync(p, 'utf8');
-  if (!md.includes('### 7.4.4. Final. Return to Crysta')) throw new Error('Missing Final section');
   if (!md.includes('## Table of Contents')) throw new Error('Missing Table of Contents');
-  if (!md.includes('7.1.1. Apologize for your mischief')) throw new Error('Missing nested section heading');
+  if (!md.includes('# 1. Legal Jazz/Intro')) throw new Error('Missing section 1 heading');
+  if (!md.includes('[11. Special Thanks](#s11)')) throw new Error('Missing TOC entry for last section');
 });
 
 assert('e2e: walkthrough.md is substantial', () => {
@@ -1201,6 +1201,149 @@ assert('splitDashSections: matches sections to TOC entries by title', () => {
   if (sections.length !== 2) throw new Error('Expected 2 sections, got ' + sections.length);
   if (sections[0].num !== '1') throw new Error('First section should have num 1');
   if (sections[1].num !== '2') throw new Error('Second section should have num 2');
+});
+
+// ── Hash-title format: detectFormat ──
+
+assert('detectFormat: detects hash format', () => {
+  const text = 'garbage\n' +
+    '-=-=-=-=-=-=-=-=-\n' +
+    '# Test Section #\n' +
+    '-=-=-=-=-=-=-=-=-\n' +
+    'some content\n' +
+    '-=-=-=-=\n' +
+    '# Another Section #\n' +
+    '-=-=-=-=\n' +
+    'more content';
+  const result = detectFormat(text);
+  if (result !== 'hash') throw new Error('Expected hash, got ' + result);
+});
+
+assert('detectFormat: does not false-positive hash on plain dash lines', () => {
+  const text = '-----------------\nsome text\n-----------------';
+  const result = detectFormat(text);
+  if (result === 'hash') throw new Error('Should not detect hash without # title');
+});
+
+// ── Hash-title format: parseHashTOC ──
+
+assert('parseHashTOC: parses bullet TOC', () => {
+  const text = 'preamble\n' +
+    'o-=-=-=-=-=-=-=-=-=-o\n' +
+    '± Table of Contents ±\n' +
+    'o-=-=-=-=-=-=-=-=-=-o\n' +
+    '\n' +
+    '¤ First Section\n' +
+    '¤ Second Section!\n' +
+    '¤ Third Section\n' +
+    '\n' +
+    '-=-=-=-=-=-=-=-=-\n' +
+    '# First Section #\n' +
+    '-=-=-=-=-=-=-=-=-\n' +
+    'body one\n' +
+    '-=-=-=-=-=-=-=-=-\n' +
+    '# Second Section #\n' +
+    '-=-=-=-=-=-=-=-=-\n' +
+    'body two\n' +
+    '-=-=-=-=-=-=-=-=-\n' +
+    '# Third Section #\n' +
+    '-=-=-=-=-=-=-=-=-\n' +
+    'body three';
+  const entries = parseHashTOC(text);
+  if (entries.length !== 3) throw new Error('Expected 3 entries, got ' + entries.length);
+  if (entries[0].title !== 'First Section') throw new Error('Expected First Section, got ' + entries[0].title);
+  if (entries[1].title !== 'Second Section') throw new Error('Expected Second Section (stripped !), got ' + entries[1].title);
+  if (entries[2].title !== 'Third Section') throw new Error('Expected Third Section, got ' + entries[2].title);
+  if (entries[0].num !== '1') throw new Error('Expected num 1, got ' + entries[0].num);
+  if (entries[0].level !== 1) throw new Error('Expected level 1, got ' + entries[0].level);
+});
+
+assert('parseHashTOC: detects subsections from body', () => {
+  const text = 'some preamble\n' +
+    '± Table of Contents ±\n\n' +
+    '¤ Walkthrough\n\n' +
+    '-=-=-=-=-=-=-=-\n# Walkthrough #\n-=-=-=-=-=-=-=-\n' +
+    'intro\n' +
+    '¤¤¤¤¤¤¤¤¤\n± Elcid ±\n°°°°°°°°°\n' +
+    'elcid content\n' +
+    '«««««««««««««\n± MAXIM ±\n°°°°°°°°°°°°°\n' +
+    'maxim content\n' +
+    '-=-=-=-=-=-=-=-\n# Credits #\n-=-=-=-=-=-=-=-\n' +
+    'thanks';
+  const entries = parseHashTOC(text);
+  if (entries.length < 3) throw new Error('Expected at least 3 entries, got ' + entries.length);
+  if (entries[0].num !== '1') throw new Error('Expected num 1 (parent), got ' + entries[0].num);
+  if (entries[0].level !== 1) throw new Error('Expected level 1, got ' + entries[0].level);
+  // Check first subsection
+  if (entries[1].num !== '1.1') throw new Error('Expected num 1.1 for first sub, got ' + entries[1].num);
+  if (entries[1].title !== 'Elcid') throw new Error('Expected Elcid, got ' + entries[1].title);
+  if (entries[1].level !== 2) throw new Error('Expected level 2, got ' + entries[1].level);
+  // Check «-variant subsection
+  if (entries[2].num !== '1.2') throw new Error('Expected num 1.2, got ' + entries[2].num);
+  if (entries[2].title !== 'MAXIM') throw new Error('Expected MAXIM, got ' + entries[2].title);
+  if (entries[2].level !== 2) throw new Error('Expected level 2, got ' + entries[2].level);
+});
+
+// ── Hash-title format: splitHashSections ──
+
+assert('splitHashSections: splits on hash headers', () => {
+  const text = [
+    'preamble',
+    '-=-=-=-=-=-=-=-=-=-=-',
+    '# Section One #',
+    '-=-=-=-=-=-=-=-=-=-=-',
+    'content one line 1',
+    'content one line 2',
+    '-=-=-=-=-=-=-=-',
+    '# Section Two #',
+    '-=-=-=-=-=-=-=-',
+    'content two line 1',
+    'content two line 2',
+  ].join('\n');
+  const toc = [
+    { num: '1', title: 'Section One', level: 1 },
+    { num: '2', title: 'Section Two', level: 1 },
+  ];
+  const sections = splitHashSections(text, toc);
+  if (sections.length !== 2) throw new Error('Expected 2 sections, got ' + sections.length);
+  if (sections[0].num !== '1') throw new Error('First section should have num 1');
+  if (!sections[0].content.includes('content one')) throw new Error('First section missing content');
+  if (sections[1].num !== '2') throw new Error('Second section should have num 2');
+  if (!sections[1].content.includes('content two')) throw new Error('Second section missing content');
+});
+
+assert('splitHashSections: splits on subsections', () => {
+  const lines = [
+    '-=-=-=-=-=-=-=-=-\n# Main Walkthrough #\n-=-=-=-=-=-=-=-=-',
+    'intro text',
+    '¤¤¤¤¤¤¤¤¤\n± Elcid ±\n°°°°°°°°°',
+    'elcid body',
+    '«««««««««\n± Cave ±\n°°°°°°°°°',
+    'cave body',
+    '-=-=-=-=-=-=-=-=-=-\n# Credits #\n-=-=-=-=-=-=-=-=-=-',
+    'thanks',
+  ];
+  const text = lines.join('\n');
+  const toc = [
+    { num: '4', title: 'Main Walkthrough', level: 1 },
+    { num: '4.1', title: 'Elcid', level: 2 },
+    { num: '4.2', title: 'Cave', level: 2 },
+    { num: '11', title: 'Credits', level: 1 },
+  ];
+  const sections = splitHashSections(text, toc);
+  if (sections.length !== 4) throw new Error('Expected 4 sections, got ' + sections.length);
+  if (sections[0].num !== '4') throw new Error('Expected section 4');
+  if (!sections[0].content.includes('intro text')) throw new Error('Section 4 missing intro');
+  if (sections[1].num !== '4.1') throw new Error('Expected section 4.1');
+  if (!sections[1].content.includes('elcid body')) throw new Error('Section 4.1 missing content');
+  if (sections[2].num !== '4.2') throw new Error('Expected section 4.2, got ' + sections[2].num);
+  if (!sections[2].content.includes('cave body')) throw new Error('Section 4.2 missing content');
+  if (sections[3].num !== '11') throw new Error('Expected section 11');
+  if (!sections[3].content.includes('thanks')) throw new Error('Section 11 missing content');
+  // Verify subsection frames are stripped from content
+  for (const s of sections) {
+    if (s.content.includes('±')) throw new Error(s.num + ' content still has ± border');
+  }
 });
 
 // ── Summary ──
