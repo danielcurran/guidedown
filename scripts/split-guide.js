@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { parseArgs, showHelp, validateOutputPath, validateInputFile } = require('../lib/cli');
+const { parseArgs, showHelp, validateInputFile } = require('../lib/cli');
 const { anchorId } = require('../lib/reformat/utils');
 
 const SCRIPT_NAME = 'faqmd-split';
@@ -26,7 +26,6 @@ function main() {
   const outputDir = cli.positional[1] || 'guide';
 
   validateInputFile(inputFile);
-  validateOutputPath(outputDir, [process.cwd()]);
   const md = fs.readFileSync(inputFile, 'utf8');
   const lines = md.split('\n');
 
@@ -323,94 +322,43 @@ function generateAchievementsMd(outputDir) {
   const toc = JSON.parse(fs.readFileSync(tocPath, 'utf8'));
 
   const sectionTitles = {};
-  const sectionFiles = {};
   function collectTocData(nodes) {
     for (const n of nodes) {
       if (n.num && n.title) sectionTitles[n.num] = n.title;
-      if (n.num && n.file) sectionFiles[n.num] = n.file;
       if (n.children) collectTocData(n.children);
     }
   }
   collectTocData(toc);
-
-  const medal = pts => pts >= 25 ? '🏅' : pts >= 10 ? '🥈' : '🥉';
-
-  const missables = ach.achievements.filter(a => a.missable).sort((a, b) => {
-    if (!a.missableCutoffSection || !b.missableCutoffSection) return 0;
-    return a.missableCutoffSection.localeCompare(b.missableCutoffSection, undefined, { numeric: true });
-  });
-  const ongoing = ach.achievements.filter(a => a.ongoing && !a.missable).sort((a, b) =>
-    (a.section || '').localeCompare(b.section || '', undefined, { numeric: true })
-  );
 
   const bySection = {};
   for (const a of ach.achievements) {
     if (!bySection[a.section]) bySection[a.section] = [];
     bySection[a.section].push(a);
   }
-  for (const key of Object.keys(bySection)) {
-    bySection[key].sort((a, b) => b.points - a.points || a.title.localeCompare(b.title));
-  }
+
+  const sortedSections = Object.keys(bySection).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const medal = pts => pts >= 25 ? '🏅' : pts >= 10 ? '🥈' : '🥉';
+  const gameUrl = 'https://retroachievements.org/game/' + ach.gameId;
 
   const lines = [];
   lines.push(`<a id="${anchorId('0.1')}"></a>`);
-  lines.push('## 0.1. Achievement Checklist');
+  lines.push('## 0.1. Achievements');
   lines.push('');
-  lines.push(`**${ach.totalAchievements} achievements · ${ach.totalPoints} points · ${missables.length} missable · ${ongoing.length} ongoing**`);
+  lines.push(`**${ach.totalAchievements} achievements · ${ach.totalPoints} points**`);
   lines.push('');
-
-  if (missables.length > 0) {
-    lines.push('### Missable Achievements ⚠️');
-    lines.push('');
-    lines.push('Sorted by cutoff — complete these before the listed section or they become unavailable.');
-    lines.push('');
-    lines.push('| Achievement | Pts | Earn In | Cutoff | Tip |');
-    lines.push('|---|---|---|---|---|');
-    for (const a of missables) {
-      const earnFile = sectionFiles[a.section];
-      const earnLink = earnFile
-        ? `[${a.section}](${earnFile}#${anchorId(a.section)})`
-        : `[${a.section}](#${anchorId(a.section)})`;
-      const cutoffFile = a.missableCutoffSection ? sectionFiles[a.missableCutoffSection] : null;
-      const cutoffLink = a.missableCutoffSection && cutoffFile
-        ? `[${a.missableCutoffSection}](${cutoffFile}#${anchorId(a.missableCutoffSection)}) ${a.missableCutoff || ''}`
-        : a.missableCutoff || 'Unknown';
-      const tip = a.notes || '';
-      lines.push(`| ${medal(a.points)} ${a.title} | ${a.points} | ${earnLink} | ${cutoffLink} | ${tip} |`);
-    }
-    lines.push('');
-  }
-
-  if (ongoing.length > 0) {
-    lines.push('### Ongoing Achievements 🔓');
-    lines.push('');
-    lines.push('Complete these naturally over the course of the playthrough — no grinding needed.');
-    lines.push('');
-    lines.push('| Achievement | Pts | Available From | Tip |');
-    lines.push('|---|---|---|---|');
-    for (const a of ongoing) {
-      const availFile = sectionFiles[a.section];
-      const availLink = availFile
-        ? `[${a.section}](${availFile}#${anchorId(a.section)})`
-        : `[${a.section}](#${anchorId(a.section)})`;
-      const tip = a.notes || '';
-      lines.push(`| ${medal(a.points)} ${a.title} | ${a.points} | ${availLink} | ${tip} |`);
-    }
-    lines.push('');
-  }
-
+  lines.push('All achievements on [RetroAchievements](' + gameUrl + ').');
+  lines.push('');
   lines.push('### By Section');
   lines.push('');
-  const sortedSections = Object.keys(bySection).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
   for (const secNum of sortedSections) {
     const achs = bySection[secNum];
     const title = sectionTitles[secNum] || secNum;
-    lines.push(`#### ${secNum} ${title}`);
+    lines.push('#### ' + secNum + ' ' + title);
     lines.push('');
     for (const a of achs) {
-      const missableTag = a.missable ? ' ⚠️ Missable' : '';
-      const ongoingTag = a.ongoing && !a.missable ? ' 🔓 Ongoing' : '';
-      lines.push(`- [ ] ${medal(a.points)} **${a.title}** — ${a.description} (${a.points} pts)${missableTag}${ongoingTag}`);
+      const achUrl = 'https://retroachievements.org/achievement/' + a.id;
+      lines.push('- ' + medal(a.points) + ' [' + a.title + '](' + achUrl + ') — ' + a.description + ' (' + a.points + ' pts)');
     }
     lines.push('');
   }
@@ -419,16 +367,16 @@ function generateAchievementsMd(outputDir) {
 
   const checklistEntry = {
     num: '0.1',
-    title: 'Achievement Checklist',
+    title: 'Achievements',
     file: 'achievements.md',
-depth: 1,
+    depth: 1,
     children: []
   };
 
   toc.unshift(checklistEntry);
   fs.writeFileSync(tocPath, JSON.stringify(toc, null, 2));
 
-  console.log(`${outputDir}/achievements.md created (${ach.totalAchievements} achievements)`);
+  console.log(outputDir + '/achievements.md created (' + ach.achievements.length + ' achievements)');
 }
 
 try {

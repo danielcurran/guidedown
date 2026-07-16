@@ -70,48 +70,7 @@ In opencode, paste a GameFAQs print URL and ask:
 
 The agent runs `node scripts/convert.js` to fetch, parse, and reformat the walkthrough.
 
-### retroachievements — Match achievements to sections
 
-Add achievement data to a walkthrough using the **retroachievements** opencode
-agent skill. Due to its complexity (LLM-powered matching with manual review),
-this is handled by the skill rather than a standalone script.
-
-Set up credentials:
-
-```bash
-export RA_USER=your_username
-export RA_KEY=your_api_key
-# Get a key at https://retroachievements.org/controlpanel.php
-```
-
-Usage in opencode:
-
-```
-"Match RetroAchievements for game 50 to guide/ walkthrough sections"
-"Cross-reference achievements for game 5633 with walkthrough.md"
-```
-
-The agent fetches achievements from the API, reads the walkthrough, reasons
-about which section each achievement belongs to, and produces an
-`achievements.json` data file. Running `split-guide.js` then generates
-`achievements.md` (a checklist with missable table + by-section view) and
-prepends a `0.1 Achievement Checklist` entry to `toc.json`.
-
-For **ambiguous or low-confidence** placements, the agent uses the
-[RA Comments API](https://retroachievements.org) to fetch player tips
-(`API_GetComments.php?t=2`). Player comments often state the exact town,
-floor, or trigger location — the agent extracts these location hints,
-searches the walkthrough, and pins down the correct section number.
-Useful comments are saved in the optional `communityTips` field so they
-persist for future reference without re-fetching.
-
-**Achievement data flow:**
-- RetroAchievements API → `achievements.json` (committed alongside sections)
-- RA Comments API → `communityTips[]` for ambiguous achievements
-- `split-guide.js` reads `achievements.json` → `achievements.md` + updated `toc.json`
-- The gamemds reader app loads `achievements.json` at runtime to render inline badges, missable warnings, and localStorage-backed progress tracking
-
-See `AGENTS.md` for the full `achievements.json` schema.
 
 ### reformat-review — Polish the reformatter output
 
@@ -144,22 +103,16 @@ Usage: `"Run live-review on guide/"`
 # 1. Convert
 node scripts/convert.js "https://gamefaqs.gamespot.com/.../faqs/12345?print=1"
 
-# 2. Annotate (via opencode agent skill)
-# "Match RetroAchievements for game <id> to walkthrough.md"
-# Produces guide/achievements.json
-
-# 3. Review and polish (optional, via opencode agent skills)
+# 2. Review and polish (optional, via opencode agent skills)
 # "Run reformat-review on walkthrough.md"   — fix tables, stat blocks, bullet lists
 
-# 4. Split (also generates achievements.md + updates toc.json if achievements.json exists)
+# 3. Split (generates section files, toc.json, and achievements.md if achievements.json exists)
 node scripts/split-guide.js walkthrough.md guide/
 
-# 5. Validate
+# 4. Validate
 npm test
 
-# 6. Publish — copy to gamemds repo (auto-deploys to gamemds.org)
-#    Add the new game to gamemds/guides.json if it is not already listed.
-#    Set "hasAchievements": true in guides.json if achievements.json exists.
+# 5. Publish — copy to gamemds repo (auto-deploys to gamemds.org)
 cp -r guide/ /path/to/gamemds/guides/<game-slug>/
 cd /path/to/gamemds
 npm test
@@ -182,7 +135,7 @@ git add -A && git commit -m "add walkthrough" && git push
 - **ASCII art** (maps, dungeon layouts) preserved in code blocks
 - **Paragraph breaks** at walkthrough instruction steps (Go, Turn, Take, Enter)
 - **Decorative headers** (`// DUNGEON #2`) stripped to clean bold text
-- **RetroAchievements** — `achievements.json` data file with section mapping, missable cutoff tracking, and strategic notes. `split-guide.js` generates a standalone checklist (`achievements.md`) with missable table + by-section checkboxes. The gamemds reader app renders inline badges, missable/upcoming cutoff alerts, a collapsible sidebar filter panel with type filters, and localStorage progress tracking with interactive checklist checkboxes.
+- **RetroAchievements** — `split-guide.js` generates a simple `achievements.md` reference page from `achievements.json`, with each achievement linking to its RetroAchievements page.
 - Content-aware formatting — classifies each block and reformats accordingly
 
 ## How It Works
@@ -223,14 +176,14 @@ Once the format is detected, the converter:
 | `lib/reformat/classify.js` | Content classification helpers |
 | `scripts/reformat.js` | Backward-compatible wrapper around `lib/reformat` |
 | `scripts/split-guide.js` | Split large output into mobile-friendly section files; generates achievements.md from achievements.json |
-| `scripts/fetch-achievements.js` | Fetch RetroAchievements data for a game ID, optionally with Comments API data |
+| `scripts/fetch-achievements.js` | Fetch RetroAchievements data for a game ID |
 | `scripts/validate-achievements.js` | Validate achievements.json schema and cross-reference sections against toc.json |
 | `scripts/test.js` | Standalone test runner (run via `npm test`) |
 | `scripts/raw.txt` | Cached GameFAQs walkthrough for offline testing |
 | `package.json` | Defines `npm test`, `npm run convert`, `npm run sync-skills`, and Node engine requirement |
 | `.github/workflows/test.yml` | CI — runs `npm test` on push/PR |
 | `skills/SKILL.md` | opencode agent skill — convert walkthroughs |
-| `skills/retroachievements-skill.md` | opencode agent skill — AI-powered achievement matching |
+| `skills/retroachievements-skill.md` | opencode agent skill — match achievements to walkthrough sections |
 | `skills/reformat-review-skill.md` | opencode agent skill — review and fix reformatter edge cases |
 | `skills/live-review-skill.md` | opencode agent skill — final QA on split guide directories |
 

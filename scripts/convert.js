@@ -3,8 +3,9 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { reformat } = require('./reformat');
-const { extractText, parseTOC, splitSections, escapeMd, anchorId, detectFormat, parseRomanTOC, splitRomanSections, parseBracketTOC, splitBracketSections, parseArrowTOC, splitBoxSections, parsePlainTOC, splitPlainSections, parseDashTOC, splitDashSections, parseHashTOC, splitHashSections, parseAuthor, parseTitle } = require('../lib/convert-core');
-const { parseArgs, showHelp, validateOutputPath } = require('../lib/cli');
+const { anchorId } = require('../lib/reformat/utils');
+const { extractText, parseTOC, splitSections, escapeMd, detectFormat, parseRomanTOC, splitRomanSections, parseBracketTOC, splitBracketSections, parseArrowTOC, splitBoxSections, parsePlainTOC, splitPlainSections, parseDashTOC, splitDashSections, parseHashTOC, splitHashSections, parseAuthor, parseTitle } = require('../lib/convert-core');
+const { parseArgs, showHelp } = require('../lib/cli');
 
 const SCRIPT_NAME = 'faqmd';
 const SCRIPT_DIR = __dirname;
@@ -129,16 +130,15 @@ async function main() {
   md += '> By ' + author + ' — Converted from GameFAQs\n\n';
   md += '## Table of Contents\n\n';
   for (const s of sections) {
-    md += '  '.repeat(s.level - 1) + '- [' + s.num + '. ' + escapeMd(s.title) + '](#' + anchorId(s) + ')\n';
+    md += '  '.repeat(s.level - 1) + '- [' + s.num + '. ' + escapeMd(s.title) + '](#' + anchorId(s.num) + ')\n';
   }
   md += '\n---\n\n';
   for (const s of sections) {
-    md += '<a id="' + anchorId(s) + '"></a>\n\n';
+    md += '<a id="' + anchorId(s.num) + '"></a>\n\n';
     md += '#'.repeat(s.level) + ' ' + s.num + '. ' + escapeMd(s.title) + '\n\n';
     md += reformat(s.content) + '\n\n';
   }
 
-  validateOutputPath(OUTPUT, [process.cwd(), SCRIPT_DIR]);
   fs.writeFileSync(OUTPUT, md);
   console.log('Saved to ' + OUTPUT + ' (' + md.length + ' bytes)');
 }

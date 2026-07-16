@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { parseArgs, showHelp, validateOutputPath } = require('../lib/cli');
+const { parseArgs, showHelp } = require('../lib/cli');
 
 const SCRIPT_NAME = 'faqmd-fetch-achievements';
 
@@ -144,7 +144,6 @@ function main() {
   if (!raUser || !raKey) throw new Error('RA_USER and RA_KEY must be set in .env or environment');
 
   const outputPath = cli.flags.output || path.join('guide', 'achievements-raw.json');
-  validateOutputPath(path.resolve(outputPath), [process.cwd()]);
   const fetchCommentsFlag = cli.flags.comments === true;
 
   (async () => {

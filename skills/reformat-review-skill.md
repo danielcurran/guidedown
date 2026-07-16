@@ -11,7 +11,6 @@ reformatting — this skill is a targeted review pass for what slips through.
 
 > **Related skills:**
 > - `faqmd` — converts the walkthrough (calls reformat internally)
-> - `retroachievements` — matches achievements to sections
 > - `live-review` — final QA on split guide directories
 
 > **Model note:** `deepseek-v4-flash` handles this fine. The scans are

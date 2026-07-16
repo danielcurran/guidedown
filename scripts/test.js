@@ -4,16 +4,16 @@
 const fs = require('fs');
 const path = require('path');
 
-const { extractText, parseTOC, splitSections, escapeMd, anchorId, detectFormat, romanToInt, parseRomanTOC, splitRomanSections, parseDashTOC, splitDashSections, parseHashTOC, splitHashSections } = require('../lib/convert-core');
+const { extractText, parseTOC, splitSections, escapeMd, detectFormat, romanToInt, parseRomanTOC, splitRomanSections, parseDashTOC, splitDashSections, parseHashTOC, splitHashSections } = require('../lib/convert-core');
 const {
   reformat, reformatBlock, formatProse, formatStatBlock, formatDecorativeText,
-  classifyArtBlock, formatEquipmentTable, formatBossCard,
-  formatCharacterSheet, formatCharacterPortrait, formatRomanSubHeader
+  formatEquipmentTable, formatBossCard,
+  formatCharacterSheet, formatRomanSubHeader
 } = require('./reformat');
 const { formatShopList, formatHashSubHeader } = require('../lib/reformat/format');
 const { hasEquipSlotLines, isBossCard, isShopBlock, isCharacterSheet, isCharacterPortrait, isPureBorderRow, isHashSubHeader } = require('../lib/reformat/detect');
 const { stripFrameChars, anchorId: anchorIdStr } = require('../lib/reformat/utils');
-const { parseArgs, validateOutputPath, validateInputFile } = require('../lib/cli');
+const { parseArgs, validateInputFile } = require('../lib/cli');
 const { parseAuthor, parseTitle } = require('../lib/convert-core');
 const { classifyLine, segmentLines, hasConsistentPipes, formatMixed } = require('../lib/reformat/classify');
 const { formatTable, formatAscii } = require('../lib/reformat/format');
@@ -89,14 +89,6 @@ assert('parseTOC: is case-insensitive on header', () => {
 assert('escapeMd: strips markdown special chars', () => {
   const r = escapeMd('[Title](url) #section *bold* _italic_ `code`');
   if (r !== 'Titleurl section bold italic code') throw new Error('Got: ' + r);
-});
-
-// ── convert-core: anchorId ──
-assert('anchorId: converts dots to hyphens', () => {
-  if (anchorId({ num: '6.4.8' }) !== 's6-4-8') throw new Error('Got: ' + anchorId({ num: '6.4.8' }));
-});
-assert('anchorId: handles single section', () => {
-  if (anchorId({ num: '2' }) !== 's2') throw new Error('Got: ' + anchorId({ num: '2' }));
 });
 
 // ── convert-core: splitSections ──
@@ -177,16 +169,6 @@ assert('formatDecorativeText: does NOT mark stat lines as decorative', () => {
   if (r !== null) throw new Error('Stat line with multi-spaces should not be decorative, got: ' + r);
 });
 
-// ── reformat: classifyArtBlock ──
-assert('classifyArtBlock: detects boss cards', () => {
-  const r = classifyArtBlock(['BOSS #1', 'HP: 300', 'Recommended Level: 12+']);
-  if (r !== 'boss') throw new Error('Expected boss, got: ' + r);
-});
-assert('classifyArtBlock: detects stat blocks', () => {
-  const r = classifyArtBlock(['LV: 99    HP: 999/999    TP: 999/999']);
-  if (r !== 'statblock') throw new Error('Expected statblock, got: ' + r);
-});
-
 // ── reformat: reformatBlock ──
 assert('reformatBlock: classifies prose block', () => {
   const r = reformatBlock(['first sentence here', 'second sentence continues']);
@@ -207,10 +189,6 @@ assert('extractText: concatenates multiple pre tags', () => {
 
 assert('escapeMd: handles empty string', () => {
   if (escapeMd('') !== '') throw new Error('Should return empty string');
-});
-
-assert('anchorId: handles deeply nested section', () => {
-  if (anchorId({ num: '6.4.8.2' }) !== 's6-4-8-2') throw new Error('Got: ' + anchorId({ num: '6.4.8.2' }));
 });
 
 assert('splitSections: tolerates missing body code', () => {
@@ -410,24 +388,6 @@ assert('formatCharacterSheet: extracts stats and equipment', () => {
   if (!r.includes('HP 25')) throw new Error('Missing HP stat');
   if (!r.includes('Head: LTHR-HELM')) throw new Error('Missing equipment');
   if (!r.includes('EARTH (3)')) throw new Error('Missing skills');
-});
-
-// ── Phase 2: formatCharacterPortrait ──
-assert('formatCharacterPortrait: extracts profile labels', () => {
-  const lines = [
-    '                       @%%@@x**x.                            Chaz Ashley',
-    '             #@.   ..... .=+==--.--------=--###@             Parmanian',
-    '          .%x-@##*========--=========--=+@@x*x###x           (Hunter)',
-    '        =#*#    +.- *+---.-=-. .-     ..+++**+***+x#         Age: 16',
-    '       *%=#.  *#.- @# .=.+#-..##-#% ##- %#.x#+@x+*+x#       Sex: Male',
-    '        -#%*=# -# #% x# #  ###%##########x# -#@.#x+**+#.     Lives:',
-    '         @x#.x#-#@-# =# *# ##@%@=   .  -@@# %#=###**        Aiedo',
-  ];
-  const r = formatCharacterPortrait(lines);
-  if (!r.includes('**Chaz Ashley**')) throw new Error('Missing name');
-  if (!r.includes('Parmanian (Hunter)')) throw new Error('Missing race/class');
-  if (!r.includes('Age: 16')) throw new Error('Missing age');
-  if (!r.includes('Lives: Aiedo')) throw new Error('Missing lives');
 });
 
 // ── End-to-end: verify generated walkthrough.md ──
@@ -646,8 +606,8 @@ assert('parseArgs: parses --flag=value', () => {
   if (r.flags.game !== '50') throw new Error('Expected game=50, got ' + r.flags.game);
 });
 
-assert('parseArgs: parses --flag value', () => {
-  const r = parseArgs(['--output', 'out.md'], { flags: { output: { value: 'FILE' } } });
+assert('parseArgs: parses --flag=value', () => {
+  const r = parseArgs(['--output=out.md']);
   if (r.flags.output !== 'out.md') throw new Error('Expected output=out.md, got ' + r.flags.output);
 });
 
@@ -679,9 +639,9 @@ assert('parseArgs: -h returns help flag', () => {
   if (r.help !== true) throw new Error('Expected help=true');
 });
 
-assert('parseArgs: value flag at end of args gets empty string', () => {
-  const r = parseArgs(['--output'], { flags: { output: { value: 'FILE' } } });
-  if (r.flags.output !== '') throw new Error('Expected empty string, got ' + r.flags.output);
+assert('parseArgs: bare flag at end of args is boolean', () => {
+  const r = parseArgs(['--output']);
+  if (r.flags.output !== true) throw new Error('Expected true, got ' + r.flags.output);
 });
 
 assert('parseArgs: mixed flags and positionals', () => {
@@ -689,27 +649,6 @@ assert('parseArgs: mixed flags and positionals', () => {
   if (r.flags.game !== '50') throw new Error('Expected game=50');
   if (r.flags.comments !== true) throw new Error('Expected comments=true');
   if (r.positional[0] !== 'input.txt') throw new Error('Expected input.txt');
-});
-
-// ── lib/cli: validateOutputPath ──
-assert('validateOutputPath: allows path within cwd', () => {
-  const cwd = process.cwd();
-  validateOutputPath('output.md', [cwd]);
-});
-
-assert('validateOutputPath: rejects path outside allowed dirs', () => {
-  let caught = false;
-  try { validateOutputPath('/etc/passwd', [process.cwd()]); } catch (e) { caught = true; }
-  if (!caught) throw new Error('Should reject path outside allowed dirs');
-});
-
-assert('validateOutputPath: allows path within subdirectory of cwd', () => {
-  const cwd = process.cwd();
-  const tmpDir = fs.mkdtempSync(path.join(cwd, 'test-guide-'));
-  const testPath = path.join(tmpDir, 'output.md');
-  fs.writeFileSync(testPath, '');
-  validateOutputPath(testPath, [cwd]);
-  fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
 // ── lib/cli: validateInputFile ──

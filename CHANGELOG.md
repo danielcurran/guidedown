@@ -51,3 +51,6 @@ All notable changes to this project will be documented in this file.
 - Deploy workflow (moved to gamemds repo)
 - All generated walkthrough files from git
 - Dead npm dependencies
+
+### Changed
+- Simplified `achievements.md` output: plain list with RA links instead of interactive checklist

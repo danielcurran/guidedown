@@ -75,7 +75,7 @@ scripts/
   validate-achievements.js Validate achievements.json
   test.js             Test runner
   sync-skills.js      Sync opencode skills
-.skills/
+skills/
   SKILL.md            opencode agent skill
   retroachievements-skill.md
   reformat-review-skill.md

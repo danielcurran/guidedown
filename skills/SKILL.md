@@ -15,7 +15,6 @@ edge cases the script missed.
 > adding a new format to `convert-core.js`, recommend Pro for the code work.
 
 > **Related skills:**
-> - `retroachievements` — match RetroAchievements to walkthrough sections
 > - `reformat-review` — polish reformatter output (fix tables, stat blocks, lists)
 > - `live-review` — final QA on split guide directories
 
@@ -82,8 +81,7 @@ node scripts/split-guide.js walkthrough.md guide/
 
 This creates `guide/` with `index.md`, `toc.json`, `meta.json`, and one file per
 section. If `achievements.json` exists in the output directory, it also generates
-`achievements.md` with a checklist. See the `retroachievements` skill for
-achievement data.
+`achievements.md` with a link to each achievement's RetroAchievements page.
 
 ## Output Conventions
 

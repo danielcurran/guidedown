@@ -65,56 +65,6 @@ Never write a one-off custom script.
 See the existing formats (roman, plain, arrow, bracket, dash) in `lib/convert-core.js`
 as examples. Each format is self-contained with its own parse and split functions.
 
-## RetroAchievements Integration
-
-`split-guide.js` optionally reads `achievements.json` from the output directory and generates:
-- `achievements.md` — a standalone checklist with missable table + by-section checkboxes
-- Updates `toc.json` to insert a `0.1 Achievement Checklist` entry at the top
-
-The `achievements.json` schema:
-
-```json
-{
-  "schemaVersion": 1,
-  "gameId": <game-id>,
-  "gameTitle": "<game title>",
-  "source": "https://retroachievements.org/game/<game-id>",
-  "totalAchievements": <count>,
-  "totalPoints": <sum>,
-  "achievements": [
-    {
-      "id": <achievement-id>,
-      "title": "<name>",
-      "description": "<description>",
-      "points": <value>,
-      "badgeUrl": "https://retroachievements.org/Badge/<badge-name>.png",
-      "displayOrder": <order>,
-      "type": "<story|missable|collectible|challenge|secret|progress>",
-      "missable": <boolean>,
-      "missableCutoff": "<cutoff description, if missable>",
-      "missableCutoffSection": "<section num, if missable>",
-      "ongoing": <boolean, optional — true for achievements completed naturally over the entire playthrough>,
-      "section": "<walkthrough section number>",
-      "confidence": "<high|medium|low>",
-      "notes": "<clarification or strategic advice>",
-      "communityTips": [
-        { "user": "<username>", "text": "<player comment>" }
-      ]
-    }
-  ]
-}
-```
-
-Fields: `id`, `title`, `description`, `points`, `badgeUrl`, `displayOrder`, `type` (story|missable|collectible|challenge|secret|progress), `missable`, `missableCutoff`, `missableCutoffSection`, `ongoing` (optional), `section`, `confidence` (high|medium|low), `notes`, `communityTips` (optional array of `{user, text}`).
-
-The RA Comments API provides player tips for ambiguous achievements:
-```bash
-curl -s "https://retroachievements.org/API/API_GetComments.php?z=$RA_USER&y=$RA_KEY&i=<achievement-id>&t=2&c=50"
-```
-Filter out `"User": "Server"` auto-generated messages. Useful player comments should be saved in the optional `communityTips` field.
-
-The `section` field joins to `toc.json` on the `num` field. The gamemds reader app loads `achievements.json` at runtime to render inline badges, missable warnings, and progress tracking.
-
 ## Usage
 Convert: node scripts/convert.js [--title=NAME] [--author=NAME] <gamefaqs-print-url>
 Split: node scripts/split-guide.js <input.md> [output-dir]
@@ -143,6 +93,6 @@ in `skills/` first, then run `npm run sync-skills` to copy the changed files to
 ## Per-Repo Opencode Config
 
 `.opencode/opencode.json` declares the `build` agent profile. The
-`.opencode/skills/` directory mirrors the four skills above for per-repo
+`.opencode/skills/` directory mirrors the skills above for per-repo
 discovery. When adding or renaming a skill, update both `skills/` and
 `.opencode/skills/` and run `npm run sync-skills` to update the global copies.
